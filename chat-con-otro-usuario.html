@@ -17,20 +17,34 @@
     .message-container {
       margin-bottom: 10px;
     }
-    .sender-info {
+    .sender-name {
       font-weight: bold;
     }
-    .message-text {
+    .message-content {
       margin-top: 5px;
+    }
+    .message-input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    .send-button {
+      padding: 10px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <h1>Chat con otro usuario</h1>
-  <div id="chat-messages"></div>
+  <div id="chat-container"></div>
   <form id="message-form">
     <input type="text" id="message-input" placeholder="Escribe un mensaje">
-    <button type="submit">Enviar</button>
+    <button type="submit" class="send-button">Enviar</button>
   </form>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -42,12 +56,12 @@
       // Asegúrate de incluir la misma configuración que en los otros archivos
       // ...
       apiKey: "AIzaSyDmbjkzrSjpg2Grm5PMROzeJMWGCgWXHuw",
-  authDomain: "proyecto-de-pruba-1.firebaseapp.com",
-  databaseURL: "https://proyecto-de-pruba-1-default-rtdb.firebaseio.com",
-  projectId: "proyecto-de-pruba-1",
-  storageBucket: "proyecto-de-pruba-1.appspot.com",
-  messagingSenderId: "733924276093",
-  appId: "1:733924276093:web:cb4734f589a1773f3e3e14"
+        authDomain: "proyecto-de-pruba-1.firebaseapp.com",
+        databaseURL: "https://proyecto-de-pruba-1-default-rtdb.firebaseio.com",
+        projectId: "proyecto-de-pruba-1",
+        storageBucket: "proyecto-de-pruba-1.appspot.com",
+        messagingSenderId: "733924276093",
+        appId: "1:733924276093:web:cb4734f589a1773f3e3e14"
     };
 
     firebase.initializeApp(firebaseConfig);
@@ -59,7 +73,7 @@
       } else {
         // El usuario ha iniciado sesión, muestra el chat con el otro usuario
         const userId = getParameterByName('userId');
-        setupChat(userId);
+        displayChat(userId);
       }
     });
 
@@ -68,68 +82,71 @@
       name = name.replace(/[\[\]]/g, '\\$&');
       const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)');
       const results = regex.exec(url);
-      if (!results) return null;
+      if (!results) return null
       if (!results[2]) return '';
       return decodeURIComponent(results[2].replace(/\+/g, ' '));
     }
 
-    function setupChat(userId) {
-      const chatMessagesContainer = document.getElementById('chat-messages');
+    function displayChat(userId) {
+      const chatContainer = document.getElementById('chat-container');
       const messageForm = document.getElementById('message-form');
       const messageInput = document.getElementById('message-input');
 
-      // Obtén la referencia al chat entre el usuario actual y el otro usuario
+      // Obtén la referencia al chat entre los dos usuarios en la base de datos
       const database = firebase.database();
-      const chatRef = database.ref('chats').child(userId);
+      const chatRef = database.ref('chats').child(getChatId(userId));
 
-      //      // Escucha los cambios en los mensajes del chat
+      // Escucha los cambios en el chat
       chatRef.on('child_added', (snapshot) => {
         const message = snapshot.val();
         displayMessage(message);
       });
 
-      // Envía un mensaje cuando se envía el formulario
+      // Maneja el envío del formulario de mensajes
       messageForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const messageText = messageInput.value;
-        sendMessage(messageText);
-        messageInput.value = '';
+        const messageText = messageInput.value.trim();
+        if (messageText !== '') {
+          sendMessage(messageText);
+          messageInput.value = '';
+        }
       });
 
-      // Función para mostrar un mensaje en el chat
       function displayMessage(message) {
         const messageContainer = document.createElement('div');
         messageContainer.classList.add('message-container');
 
-        const senderInfo = document.createElement('p');
-        senderInfo.classList.add('sender-info');
-        senderInfo.textContent = `De: ${message.sender}`;
-        messageContainer.appendChild(senderInfo);
+        const senderName = document.createElement('p');
+        senderName.classList.add('sender-name');
+        senderName.textContent = message.senderName;
+        messageContainer.appendChild(senderName);
 
-        const messageText = document.createElement('p');
-        messageText.classList.add('message-text');
-        messageText.textContent = message.text;
-        messageContainer.appendChild(messageText);
+        const messageContent = document.createElement('p');
+        messageContent.classList.add('message-content');
+        messageContent.textContent = message.content;
+        messageContainer.appendChild(messageContent);
 
-        chatMessagesContainer.appendChild(messageContainer);
+        chatContainer.appendChild(messageContainer);
       }
 
-      // Función para enviar un mensaje al chat
       function sendMessage(messageText) {
         const user = firebase.auth().currentUser;
-        const sender = user.displayName;
-
-        // Crea un nuevo objeto de mensaje con el texto y el remitente
         const message = {
-          text: messageText,
-          sender: sender
+          senderId: user.uid,
+          senderName: user.displayName,
+          content: messageText
         };
-
-        // Agrega el mensaje a la base de datos del chat
-        chatRef.push(message);
+        chatRef.push().set(message);
       }
+    }
+
+    function getChatId(userId) {
+      const user = firebase.auth().currentUser;
+      const currentUserId = user.uid;
+      return currentUserId < userId ? `${currentUserId}_${userId}` : `${userId}_${currentUserId}`;
     }
   </script>
 </body>
 </html>
+
 

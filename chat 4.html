@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat</title>
+</head>
+<body>
+  <div id="chat"></div>
+
+  <!-- Utiliza la versión 8.x.x del SDK de Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+  <script>
+    // Tu configuración de Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyDmbjkzrSjpg2Grm5PMROzeJMWGCgWXHuw",
+        authDomain: "proyecto-de-pruba-1.firebaseapp.com",
+        databaseURL: "https://proyecto-de-pruba-1-default-rtdb.firebaseio.com",
+        projectId: "proyecto-de-pruba-1",
+        storageBucket: "proyecto-de-pruba-1.appspot.com",
+        messagingSenderId: "733924276093",
+        appId: "1:733924276093:web:cb4734f589a1773f3e3e14"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    const chatRef = firebase.database().ref('chat');
+    const storageRef = firebase.storage().ref();
+
+    // Escuchar los mensajes del chat
+    chatRef.on('child_added', snapshot => {
+      const message = snapshot.val();
+      displayMessage(message.sender, message.text, message.imageUrl);
+    });
+
+    // Enviar mensaje
+    function sendMessage() {
+      const name = document.getElementById('nameInput').value;
+      const text = document.getElementById('messageInput').value;
+      const imageFile = document.getElementById('imageInput').files[0];
+
+      if (imageFile) {
+        // Subir la imagen al almacenamiento de Firebase
+        const imageRef = storageRef.child(`images/${imageFile.name}`);
+        imageRef.put(imageFile)
+          .then(snapshot => snapshot.ref.getDownloadURL())
+          .then(imageUrl => {
+            // Guardar el mensaje en la base de datos
+            chatRef.push({
+              sender: name,
+              text: text,
+              imageUrl: imageUrl
+            });
+
+            document.getElementById('messageInput').value = '';
+            document.getElementById('imageInput').value = '';
+          })
+          .catch(error => {
+            console.error('Error al subir la imagen:', error);
+          });
+      } else {
+        // Guardar el mensaje en la base de datos sin imagen
+        chatRef.push({
+          sender: name,
+          text: text
+        });
+
+        document.getElementById('messageInput').value = '';
+      }
+    }
+
+    // Mostrar mensaje en el chat
+    function displayMessage(sender, text, imageUrl) {
+      const chatDiv = document.getElementById('chat');
+      const messageContainer = document.createElement('div');
+
+      const senderElement = document.createElement('p');
+      senderElement.innerText = sender;
+      messageContainer.appendChild(senderElement);
+
+      if (imageUrl) {
+        const imageElement = document.createElement('img');
+        imageElement.src = imageUrl;
+        imageElement.style.maxWidth = '200px';
+        messageContainer.appendChild(imageElement);
+      }
+
+      const textElement = document.createElement('p');
+      textElement.innerText = text;
+      messageContainer.appendChild(textElement);
+
+      chatDiv.appendChild(messageContainer);
+    }
+  </script>
+
+  <input type="text" id="nameInput" placeholder="Ingresa tu nombre...">
+<input type="text" id="messageInput" placeholder="Escribe tu mensaje...">
+<input type="file" id="imageInput">
+<button onclick="sendMessage()">Enviar</button>
+</body>
+</html>

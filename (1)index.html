@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  E-mail:<input type="email" id="email">
+  <button id="send"> Send </button>
+
+  <!-- Utiliza la versión 8.x.x del SDK de Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script>
+    // Tu configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmbjkzrSjpg2Grm5PMROzeJMWGCgWXHuw",
+  authDomain: "proyecto-de-pruba-1.firebaseapp.com",
+  databaseURL: "https://proyecto-de-pruba-1-default-rtdb.firebaseio.com",
+  projectId: "proyecto-de-pruba-1",
+  storageBucket: "proyecto-de-pruba-1.appspot.com",
+  messagingSenderId: "733924276093",
+  appId: "1:733924276093:web:cb4734f589a1773f3e3e14"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    const database = firebase.database();
+    const firebaseRef = database.ref();
+
+    // El evento de clic
+    document.getElementById('send').addEventListener('click', function(){
+      firebaseRef.push().set({
+        email: document.getElementById('email').value
+      });
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+

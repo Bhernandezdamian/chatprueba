@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Perfil del otro usuario</title>
+  <title>Chat con otro usuario</title>
   <style>
     /* Estilos CSS para personalizar la apariencia de la página */
     body {
@@ -14,21 +14,35 @@
     h1 {
       color: #333;
     }
-    .user-profile {
-      display: flex;
-      align-items: center;
+    .chat-messages {
       margin-bottom: 10px;
     }
-    .user-image {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      margin-right: 10px;
+    .message {
+      background-color: #f1f1f1;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 5px;
     }
-    .user-info {
+    .message.sender {
+      background-color: #007bff;
+      color: #fff;
+    }
+    .message.receiver {
+      background-color: #28a745;
+      color: #fff;
+    }
+    .message .timestamp {
+      font-size: 12px;
+      color: #888;
+    }
+    .message .sender-name {
       font-weight: bold;
     }
-    .chat-button {
+    .message-input {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .send-button {
       padding: 10px;
       background-color: #007bff;
       color: #fff;
@@ -39,9 +53,10 @@
   </style>
 </head>
 <body>
-  <h1>Perfil del Usuario</h1>
-  <div id="user-profile"></div>
-  <button class="chat-button" onclick="openChat()">Iniciar Chat</button>
+  <h1>Chat con el Usuario</h1>
+  <div id="chat-messages" class="chat-messages"></div>
+  <input type="text" id="message-input" class="message-input" placeholder="Escribe tu mensaje...">
+  <button id="send-button" class="send-button">Enviar</button>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -70,6 +85,7 @@
         // El usuario ha iniciado sesión, muestra el perfil del usuario seleccionado
         const userId = getParameterByName('userId');
         displayUserProfile(userId);
+        listenForMessages(userId);
       }
     });
 
@@ -85,42 +101,114 @@
 
     function displayUserProfile(userId) {
       const userProfileContainer = document.getElementById('user-profile');
-    
+
       // Obtén la referencia al usuario seleccionado en la base de datos
       const database = firebase.database();
       const userRef = database.ref('users/' + userId);
-    
+
       // Escucha los cambios en el perfil del usuario seleccionado
       userRef.on('value', (snapshot) => {
         const user = snapshot.val();
-    
+
         // Crea un elemento de contenedor para el perfil del usuario
         const userProfile = document.createElement('div');
         userProfile.classList.add('user-profile');
-    
+
         // Agrega la imagen y la información del usuario al contenedor
         const userImage = document.createElement('img');
         userImage.classList.add('user-image');
         userImage.src = user.profilePictureUrl;
         userProfile.appendChild(userImage);
-    
+
         const userInfo = document.createElement('p');
         userInfo.classList.add('user-info');
         userInfo.textContent = `Nombre: ${user.username}`;
         userProfile.appendChild(userInfo);
-    
+
         // Agrega el perfil del usuario al contenedor
         userProfileContainer.appendChild(userProfile);
       });
     }
-    
 
-function openChat() {
-  const userId = getParameterByName('userId');
-  window.location.href = `chat-con-otro-usuario.html?userId=${userId}`;
-}
-</script>
+    function listenForMessages(userId) {
+      const chatMessagesContainer = document.getElementById('chat-messages');
+
+      // Obtén la referencia a los mensajes en la base de datos
+      const database = firebase.database();
+      const messagesRef = database.ref('messages');
+
+      // Escucha los nuevos mensajes
+      messagesRef.on('child_added', (snapshot) => {
+        const message = snapshot.val();
+        const messageId = snapshot.key;
+
+        // Verifica si el mensaje es del usuario seleccionado
+        if (
+          (message.senderId === firebase.auth().currentUser.uid && message.receiverId === userId) ||
+          (message.senderId === userId && message.receiverId === firebase.auth().currentUser.uid)
+        ) {
+          // Crea un elemento de mensaje
+          const messageElement = document.createElement('div');
+          messageElement.classList.add('message');
+          messageElement.classList.add(message.senderId === firebase.auth().currentUser.uid ? 'sender' : 'receiver');
+
+          // Agrega el contenido del mensaje al elemento
+          const timestampElement = document.createElement('span');
+          timestampElement.classList.add('timestamp');
+          timestampElement.textContent = new Date(message.timestamp).toLocaleString();
+
+          const senderNameElement = document.createElement('span');
+          senderNameElement.classList.add('sender-name');
+          senderNameElement.textContent = message.senderName + ': ';
+
+          const messageContentElement = document.createElement('span');
+          messageContentElement.textContent = message.content;
+
+          messageElement.appendChild(timestampElement);
+          messageElement.appendChild(senderNameElement);
+          messageElement.appendChild(messageContentElement);
+
+          // Agrega el mensaje al contenedor
+          chatMessagesContainer.appendChild(messageElement);
+        }
+      });
+    }
+
+    function openChat() {
+      const userId = getParameterByName('userId');
+      window.location.href = `chat-con-otro-usuario.html?userId=${userId}`;
+    }
+
+    document.getElementById('send-button').addEventListener('click', () => {
+      const userId = getParameterByName('userId');
+      const messageInput = document.getElementById('message-input');
+      const messageContent = messageInput.value.trim();
+
+      if (messageContent !== '') {
+        const senderId = firebase.auth().currentUser.uid;
+        const senderName = firebase.auth().currentUser.displayName;
+
+        const database = firebase.database();
+        const messagesRef = database.ref('messages');
+
+        const newMessageRef = messagesRef.push();
+        newMessageRef.set({
+          senderId: senderId,
+          senderName: senderName,
+          receiverId: userId,
+          content: messageContent,
+          timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        // Limpia el campo de entrada de mensajes después de enviarlo
+        messageInput.value = '';
+      }
+    });
+  </script>
 </body>
 </html>
+
+     
+
 
 

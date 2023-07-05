@@ -5,119 +5,198 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat</title>
   <style>
-    /* Estilos CSS para personalizar la apariencia de la página */
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      color: #333;
-    }
-    .user-container {
-      display: flex;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .user-image {
-      width: 100px; /* Cambia el tamaño de la imagen a 30px */
-      height: 100px; /* Cambia el tamaño de la imagen a 30px */
-      border-radius: 50%;
-      margin-right: 10px;
-    }
-    .user-name {
-      font-weight: bold;
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 <body>
-  <h1>Usuarios Registrados</h1>
-  <div id="user-list"></div>
+  <h1>Chat</h1>
 
+  <div id="messages" class="hidden"></div>
+
+  <input type="text" id="messageInput" class="hidden">
+  <button onclick="sendMessage()" class="hidden">Enviar</button>
+
+  <h2>Autenticación</h2>
+  <input type="text" id="name" placeholder="Nombre">
+  <input type="email" id="email" placeholder="Correo electrónico">
+  <input type="password" id="password" placeholder="Contraseña">
+  <input type="file" id="photo" accept="image/*">
+  <button onclick="register()">Registrarse</button>
+  <button onclick="login()">Iniciar sesión</button>
+
+  <div id="successMessage" class="hidden">Registro exitoso. Ahora puedes iniciar sesión.</div>
+
+  <!-- Utiliza la versión 8.x.x del SDK de Firebase -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <script>
+    // Tu configuración de Firebase
     const firebaseConfig = {
-      // Tu configuración de Firebase
-      // Asegúrate de incluir la misma configuración que en los otros archivos
-      // ...
       apiKey: "AIzaSyDmbjkzrSjpg2Grm5PMROzeJMWGCgWXHuw",
-        authDomain: "proyecto-de-pruba-1.firebaseapp.com",
-        databaseURL: "https://proyecto-de-pruba-1-default-rtdb.firebaseio.com",
-        projectId: "proyecto-de-pruba-1",
-        storageBucket: "proyecto-de-pruba-1.appspot.com",
-        messagingSenderId: "733924276093",
-        appId: "1:733924276093:web:cb4734f589a1773f3e3e14"
+      authDomain: "proyecto-de-pruba-1.firebaseapp.com",
+      databaseURL: "https://proyecto-de-pruba-1-default-rtdb.firebaseio.com",
+      projectId: "proyecto-de-pruba-1",
+      storageBucket: "proyecto-de-pruba-1.appspot.com",
+      messagingSenderId: "733924276093",
+      appId: "1:733924276093:web:cb4734f589a1773f3e3e14"
     };
 
+    // Inicializar Firebase
     firebase.initializeApp(firebaseConfig);
 
-    firebase.auth().onAuthStateChanged((user) => {
-      if (!user) {
-        // El usuario no ha iniciado sesión, redirige a la página de inicio de sesión
-        window.location.href = 'index.html';
-      } else {
-        // El usuario ha iniciado sesión, guarda su correo electrónico
-        const currentUserEmail = user.email;
-        displayUserList(currentUserEmail);
+    // Obtener referencia a la base de datos
+    const database = firebase.database();
+    const storage = firebase.storage();
+    const firestore = firebase.firestore();
+
+    // Referencia a la sección de mensajes
+    const messagesRef = database.ref("messages");
+
+    // Función para enviar un mensaje
+    function sendMessage() {
+      const messageInput = document.getElementById("messageInput");
+      const message = messageInput.value;
+
+      if (message.trim() !== "") {
+        const user = firebase.auth().currentUser;
+        if (user) {
+          const name = user.displayName || user.email;
+
+          // Agregar el mensaje a la base de datos
+          messagesRef.push().set({
+            text: message,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            user: name,
+            photoURL: user.photoURL
+          });
+
+          // Limpiar el campo de entrada de texto
+          messageInput.value = "";
+        }
       }
+    }
+
+    // Mostrar los mensajes en la página
+    messagesRef.on("child_added", snapshot => {
+      const message = snapshot.val();
+      const messageElement = document.createElement("div");
+      const userPhoto = document.createElement("img");
+      const userName = document.createElement("span");
+      const messageText = document.createElement("p");
+
+      userPhoto.src = message.photoURL;
+      userPhoto.alt = "Foto de perfil";
+      userPhoto.style.width = "50px";
+      userName.innerText = message.user + ": ";
+      messageText.innerText = message.text;
+
+      messageElement.appendChild(userPhoto);
+      messageElement.appendChild(userName);
+      messageElement.appendChild(messageText);
+      document.getElementById("messages").appendChild(messageElement);
     });
 
-    function displayUserList(currentUserEmail) {
-      const userList = document.getElementById('user-list');
+    // Registra la función para manejar el registro
+    function register() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const name = document.getElementById("name").value;
+      const photo = document.getElementById("photo").files[0];
 
-      // Obtén la referencia a la colección de usuarios en la base de datos
-      const database = firebase.database();
-      const usersRef = database.ref('users');
+      firebase.auth().createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          // El usuario se registró exitosamente
+          const user = userCredential.user;
+          console.log("Registro exitoso:", user);
 
-      // Escucha los cambios en la colección de usuarios
-      usersRef.on('value', (snapshot) => {
-        userList.innerHTML = '';
-
-        // Recorre cada usuario en la base de datos
-        snapshot.forEach((userSnapshot) => {
-          const user = userSnapshot.val();
-
-          // Verifica si el usuario actual es igual al usuario del bucle
-          if (user.email !== currentUserEmail) {
-            // Crea un elemento de contenedor para el usuario
-            const userContainer = document.createElement('div');
-            userContainer.classList.add('user-container');
-
-            // Agrega un identificador único al contenedor de usuario
-            userContainer.id = userSnapshot.key;
-
-            // Agrega la imagen y el nombre del usuario al contenedor
-            const userImage = document.createElement('img');
-            userImage.classList.add('user-image');
-            userImage.src = user.profilePictureUrl;
-            userImage.addEventListener('click', () => {
-              viewUserProfile(userSnapshot.key);
+          // Subir la imagen de perfil a Firebase Storage
+          const storageRef = storage.ref(`profilePictures/${user.uid}/${photo.name}`);
+          storageRef.put(photo).then(() => {
+            // Obtener la URL de la imagen de perfil subida
+            storageRef.getDownloadURL().then((photoURL) => {
+              // Actualizar el perfil del usuario
+              user.updateProfile({
+                displayName: name,
+                photoURL: photoURL
+              }).then(() => {
+                // Guardar la información del usuario en Firestore
+                firestore.collection("users").doc(user.uid).set({
+                  name: name,
+                  email: email,
+                  photoURL: photoURL
+                }).then(() => {
+                  // Realiza cualquier acción adicional necesaria después del registro
+                  document.getElementById("name").value = "";
+                  document.getElementById("email").value = "";
+                  document.getElementById("password").value = "";
+                  document.getElementById("photo").value = "";
+                  showChat(); // Mostrar el chat después de registrar
+                  showSuccessAlert(); // Mostrar alerta de éxito
+                }).catch((error) => {
+                  console.log("Error al guardar la información del usuario en Firestore:", error.message);
+                });
+              }).catch((error) => {
+                console.log("Error al actualizar el perfil del usuario:", error.message);
+              });
+            }).catch((error) => {
+              console.log("Error al obtener la URL de la imagen de perfil:", error.message);
             });
-            userContainer.appendChild(userImage);
-
-            const userName = document.createElement('p');
-            userName.classList.add('user-name');
-            userName.textContent = user.username;
-            userContainer.appendChild(userName);
-
-            // Agrega el contenedor del usuario a la lista de usuarios
-            userList.appendChild(userContainer);
-          }
+          }).catch((error) => {
+            console.log("Error al subir la imagen de perfil:", error.message);
+          });
+        })
+        .catch((error) => {
+          // Se produjo un error durante el registro
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          console.log("Error en el registro:", errorCode, errorMessage);
         });
+    }
+
+    // Registra la función para manejar el inicio de sesión
+    function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          // El usuario ha iniciado sesión exitosamente
+          const user = userCredential.user;
+
+          // Realiza cualquier acción adicional necesaria después del inicio de sesión
+          document.getElementById("email").value = "";
+          document.getElementById("password").value = "";
+          showChat(); // Mostrar el chat después de iniciar sesión
+        })
+        .catch((error) => {
+          // Se produjo un error durante el inicio de sesión
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          console.log("Error en el inicio de sesión:", errorCode, errorMessage);
+        });
+    }
+
+    // Mostrar el chat después de autenticarse
+    function showChat() {
+      const chatElements = document.querySelectorAll("#messages, #messageInput, button");
+      chatElements.forEach((element) => {
+        element.classList.remove("hidden");
       });
     }
 
-    function viewUserProfile(userId) {
-      // Redirige a la página perfil_del_otro_usuario.html con el userId como parámetro en la URL
-      window.location.href = `perfil_del_otro_usuario.html?userId=${userId}`;
+    // Mostrar la alerta de registro exitoso
+    function showSuccessAlert() {
+      const successMessage = document.getElementById("successMessage");
+      successMessage.classList.remove("hidden");
+      setTimeout(() => {
+        successMessage.classList.add("hidden");
+      }, 5000); // Ocultar la alerta después de 5 segundos
     }
   </script>
 </body>
 </html>
-           
-
-
-
-
